@@ -1,0 +1,73 @@
+services:
+  django:
+    build:
+      context: .
+      dockerfile: ./docker/local/django/Dockerfile
+    volumes:
+      - .:/app:z
+      - static_volume:/app/staticfiles
+      - media_volume:/app/mediafiles
+    expose:
+      - "8000"
+    env_file:
+      - ./.envs/.local/.django
+      - ./.envs/.local/.postgres
+    command: /start
+    networks:
+      - direction-nw
+
+  nginx:
+    restart: always
+    depends_on:
+      - django
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/mediafiles
+    build:
+      context: ./docker/local/nginx
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    networks:
+      - direction-nw
+
+  postgres:
+    build:
+      context: ./docker/local/postgres/
+      dockerfile: Dockerfile
+    volumes:
+      - local_postgres_data:/var/lib/postgresql/data/
+    env_file:
+      - ./.envs/.local/.postgres
+    networks:
+      - direction-nw
+
+  redis:
+    image: redis:7-alpine
+    networks:
+      - direction-nw
+
+  celery_worker:
+    build:
+      context: .
+      dockerfile: ./docker/local/django/Dockerfile
+    command: /start-celeryworker
+    volumes:
+      - .:/app
+    env_file:
+      - ./.envs/.local/.django
+      - ./.envs/.local/.postgres
+    depends_on:
+      - redis
+    networks:
+      - direction-nw
+
+networks:
+  direction-nw:
+    driver: bridge
+
+volumes:
+  local_postgres_data: {}
+  pgadmin:
+  static_volume:
+  media_volume:
